@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SkinMatch AI - Recommandations cosmétiques</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50">
+    <div id="app"></div>
+
+    <script>
+        const state = {
+            currentPage: 'home',
+            user: null,
+            userRole: null,
+            authData: { email: '', password: '', name: '', businessName: '' },
+            isSignUp: false,
+            analysisMode: null,
+            quizStep: 0,
+            recommendations: null,
+            cart: [],
+            selectedTab: 'results',
+            allProducts: [
+                { id: 1, name: 'Nettoyant purifiant', brand: 'BeautyBénin', price: 8500, skinType: 'Grasse', problem: 'Acné', rating: 4.8, reviews: 42, reason: 'Élimine l\'excès de sébum' },
+                { id: 2, name: 'Crème hydratante riche', brand: 'LuxeSkin', price: 15000, skinType: 'Sèche', problem: 'Sécheresse', rating: 4.9, reviews: 67, reason: 'Nutrition intensive' },
+                { id: 3, name: 'Sérum anti-acné', brand: 'ClearSkin', price: 13000, skinType: 'Grasse', problem: 'Acné', rating: 4.8, reviews: 54, reason: 'Réduit acné et cicatrices' },
+                { id: 4, name: 'SPF 50+ Protection', brand: 'SunGuard', price: 11500, skinType: 'Tous', problem: 'Protection', rating: 4.9, reviews: 112, reason: 'Protection UV maximale' },
+            ],
+            vendorProducts: [],
+            quizAnswers: { sexe: '', age: '', typePeau: '', carnation: '', problemes: [] }
+        };
+
+        const quizQuestions = [
+            { title: 'Quel est votre sexe ?', options: ['Femme', 'Homme', 'Autre'], key: 'sexe' },
+            { title: 'Quel âge avez-vous ?', options: ['15-25', '25-35', '35-45', '45-55', '55+'], key: 'age' },
+            { title: 'Quel est votre type de peau ?', options: ['Grasse', 'Sèche', 'Mixte', 'Normale', 'Sensible'], key: 'typePeau' },
+            { title: 'Quelle est votre carnation ?', options: ['Très claire', 'Claire', 'Médium', 'Foncée', 'Très foncée'], key: 'carnation' },
+            { title: 'Quel est votre principal problème ?', options: ['Acné', 'Rides', 'Taches', 'Peau terne', 'Boutons', 'Eczéma', 'Sensibilité', 'Aucun'], key: 'problemes', multiple: true },
+        ];
+
+        function logout() {
+            state.user = null;
+            state.userRole = null;
+            state.currentPage = 'home';
+            state.cart = [];
+            state.recommendations = null;
+            render();
+        }
+
+        function addToCart(product) {
+            state.cart.push(product);
+            render();
+        }
+
+        function removeFromCart(idx) {
+            state.cart.splice(idx, 1);
+            render();
+        }
+
+        function getCartTotal() {
+            return state.cart.reduce((sum, p) => sum + p.price, 0);
+        }
+
+        function handleQuizAnswer(answer) {
+            const question = quizQuestions[state.quizStep];
+            if (question.multiple) {
+                if (state.quizAnswers[question.key].includes(answer)) {
+                    state.quizAnswers[question.key] = state.quizAnswers[question.key].filter(a => a !== answer);
+                } else {
+                    state.quizAnswers[question.key].push(answer);
+                }
+            } else {
+                state.quizAnswers[question.key] = answer;
+                state.quizStep++;
+            }
+            render();
+        }
+
+        function submitQuiz() {
+            const question = quizQuestions[state.quizStep];
+            if (question.multiple && state.quizAnswers[question.key].length === 0) return;
+            if (!question.multiple && !state.quizAnswers[question.key]) return;
+            
+            if (state.quizStep < quizQuestions.length - 1) {
+                state.quizStep++;
+            } else {
+                const skinTypeName = state.quizAnswers.typePeau;
+                const problemName = state.quizAnswers.problemes[0] || 'Aucun';
+                const matched = state.allProducts.filter(p => 
+                    (p.skinType === skinTypeName || p.skinType === 'Tous') &&
+                    (p.problem === problemName || p.problem === 'Protection')
+                );
+                state.recommendations = {
+                    ...state.quizAnswers,
+                    matchedProducts: matched.length > 0 ? matched : state.allProducts.slice(0, 4)
+                };
+                state.currentPage = 'results';
+            }
+            render();
+        }
+
+        function handleAuth(e) {
+            e.preventDefault();
+            if (state.isSignUp) {
+                if (!state.authData.name || !state.authData.email || !state.authData.password) return;
+                state.user = { name: state.authData.name, email: state.authData.email };
+                state.userRole = 'user';
+            } else {
+                if (!state.authData.email || !state.authData.password) return;
+                state.user = { name: 'Utilisateur', email: state.authData.email };
+                state.userRole = 'user';
+            }
+            state.authData = { email: '', password: '', name: '', businessName: '' };
+            state.currentPage = 'mode';
+            render();
+        }
+
+        function handleVendorSignUp(e) {
+            e.preventDefault();
+            if (!state.authData.businessName || !state.authData.email || !state.authData.password) return;
+            state.user = { name: state.authData.businessName, email: state.authData.email };
+            state.userRole = 'vendor';
+            state.currentPage = 'vendor-dashboard';
+            render();
+        }
+
+        function addVendorProduct(e) {
+            e.preventDefault();
+            if (!state.vendorFormData.productName || !state.vendorFormData.price) return;
+            
+            const newProduct = {
+                id: state.allProducts.length + 1,
+                name: state.vendorFormData.productName,
+                brand: state.vendorFormData.brand || state.user.name,
+                price: parseInt(state.vendorFormData.price),
+                skinType: state.vendorFormData.skinType || 'Tous',
+                problem: 'Produit',
+                reason: 'Excellent produit',
+                rating: 4.7,
+                reviews: 0
+            };
+            
+            state.allProducts.push(newProduct);
+            state.vendorProducts.push(newProduct);
+            state.vendorFormData = { productName: '', brand: '', price: '', skinType: '', problem: '', reason: '' };
+            render();
+        }
+
+        function render() {
+            const app = document.getElementById('app');
+            
+            if (state.currentPage === 'home' && !state.user) {
+                app.innerHTML = `
+                    <div class="min-h-screen bg-gradient-to-b from-white to-gray-50">
+                        <header class="bg-white border-b border-gray-200">
+                            <div class="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-10 h-10 rounded-full bg-[#D4AF37]"></div>
+                                    <h1 class="text-2xl font-bold">SkinMatch AI</h1>
+                                </div>
+                                <div class="flex gap-4">
+                                    <button onclick="state.isSignUp = true; state.currentPage = 'auth'; render();" class="px-6 py-3 text-gray-700 hover:bg-gray-100 rounded-lg">S'inscrire</button>
+                                    <button onclick="state.isSignUp = false; state.currentPage = 'auth'; render();" class="px-6 py-3 bg-[#D4AF37] text-white rounded-lg font-semibold">Se connecter</button>
+                                </div>
+                            </div>
+                        </header>
+
+                        <section class="max-w-6xl mx-auto px-6 py-20">
+                            <div class="text-center mb-20">
+                                <h2 class="text-5xl font-bold mb-6">Trouvez enfin les produits parfaits pour votre peau</h2>
+                                <p class="text-xl text-gray-600 mb-10">Répondez à quelques questions ou analysez votre peau par photo.</p>
+                                <button onclick="state.isSignUp = true; state.currentPage = 'auth'; render();" class="px-8 py-4 bg-[#D4AF37] text-white text-lg rounded-lg font-semibold">Commencer gratuitement</button>
+                            </div>
+
+                            <div class="grid md:grid-cols-4 gap-6">
+                                <div class="bg-white p-8 rounded-lg text-center border border-gray-100">
+                                    <div class="text-4xl mb-4">❓</div>
+                                    <h3 class="font-bold text-lg">Questionnaire</h3>
+                                    <p class="text-gray-600 text-sm">5 questions</p>
+                                </div>
+                                <div class="bg-white p-8 rounded-lg text-center border border-gray-100">
+                                    <div class="text-4xl mb-4">📷</div>
+                                    <h3 class="font-bold text-lg">Photo IA</h3>
+                                    <p class="text-gray-600 text-sm">Détection</p>
+                                </div>
+                                <div class="bg-white p-8 rounded-lg text-center border border-gray-100">
+                                    <div class="text-4xl mb-4">📋</div>
+                                    <h3 class="font-bold text-lg">Routines</h3>
+                                    <p class="text-gray-600 text-sm">Matin/Soir</p>
+                                </div>
+                                <div class="bg-white p-8 rounded-lg text-center border border-gray-100">
+                                    <div class="text-4xl mb-4">🛒</div>
+                                    <h3 class="font-bold text-lg">Shop</h3>
+                                    <p class="text-gray-600 text-sm">Achat direct</p>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="bg-[#FFF8DC] border-t-2 border-[#D4AF37] py-12">
+                            <div class="max-w-6xl mx-auto px-6 text-center">
+                                <h3 class="text-2xl font-bold mb-4">Vous êtes une marque ?</h3>
+                                <button onclick="state.isSignUp = true; state.currentPage = 'vendor-auth'; render();" class="px-6 py-3 bg-[#D4AF37] text-white rounded-lg font-semibold">Devenir partenaire</button>
+                            </div>
+                        </section>
+                    </div>
+                `;
+            } else if (state.currentPage === 'auth') {
+                app.innerHTML = `
+                    <div class="min-h-screen bg-gray-50">
+                        <header class="bg-white border-b">
+                            <div class="max-w-6xl mx-auto px-6 py-4">
+                                <button onclick="state.currentPage = 'home'; render();" class="flex items-center gap-2">
+                                    <div class="w-10 h-10 rounded-full bg-[#D4AF37]"></div>
+                                    <h1 class="text-2xl font-bold">SkinMatch AI</h1>
+                                </button>
+                            </div>
+                        </header>
+                        <div class="max-w-md mx-auto mt-20 px-6">
+                            <div class="bg-white rounded-lg p-8">
+                                <h2 class="text-3xl font-bold mb-6 text-center">${state.isSignUp ? 'Créer un compte' : 'Se connecter'}</h2>
+                                <form onsubmit="handleAuth(event)">
+                                    ${state.isSignUp ? `<input type="text" placeholder="Nom" onchange="state.authData.name = this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg mb-4">` : ''}
+                                    <input type="email" placeholder="Email" onchange="state.authData.email = this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg mb-4">
+                                    <input type="password" placeholder="Mot de passe" onchange="state.authData.password = this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg mb-4">
+                                    <button class="w-full py-3 bg-[#D4AF37] text-white rounded-lg font-semibold">${state.isSignUp ? "S'inscrire" : 'Se connecter'}</button>
+                                </form>
+                                <button onclick="state.isSignUp = !state.isSignUp; render();" class="w-full mt-4 text-[#D4AF37]">${state.isSignUp ? 'Se connecter' : "S'inscrire"}</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else if (state.currentPage === 'vendor-auth') {
+                app.innerHTML = `
+                    <div class="min-h-screen bg-gray-50">
+                        <header class="bg-white border-b">
+                            <div class="max-w-6xl mx-auto px-6 py-4">
+                                <button onclick="state.currentPage = 'home'; render();" class="flex items-center gap-2">
+                                    <div class="w-10 h-10 rounded-full bg-[#D4AF37]"></div>
+                                    <h1 class="text-2xl font-bold">SkinMatch AI</h1>
+                                </button>
+                            </div>
+                        </header>
+                        <div class="max-w-md mx-auto mt-20 px-6">
+                            <div class="bg-white rounded-lg p-8">
+                                <h2 class="text-3xl font-bold mb-2 text-center">Espace Vendeur</h2>
+                                <form onsubmit="handleVendorSignUp(event)">
+                                    <input type="text" placeholder="Marque" onchange="state.authData.businessName = this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg mb-4">
+                                    <input type="email" placeholder="Email" onchange="state.authData.email = this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg mb-4">
+                                    <input type="password" placeholder="Mot de passe" onchange="state.authData.password = this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg mb-4">
+                                    <button class="w-full py-3 bg-[#D4AF37] text-white rounded-lg font-semibold">S'inscrire</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else if (state.currentPage === 'mode' && state.user && !state.analysisMode) {
+                app.innerHTML = `
+                    <div class="min-h-screen bg-gray-50">
+                        <header class="bg-white border-b">
+                            <div class="max-w-6xl mx-auto px-6 py-4 flex justify-between">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-10 h-10 rounded-full bg-[#D4AF37]"></div>
+                                    <h1 class="text-xl font-bold">SkinMatch AI</h1>
+                                </div>
+                                <button onclick="logout();" class="px-6 py-3 text-gray-700">Déconnexion</button>
+                            </div>
+                        </header>
+                        <div class="max-w-4xl mx-auto px-6 py-20">
+                            <h2 class="text-4xl font-bold text-center mb-16">Choisissez votre méthode</h2>
+                            <div class="grid md:grid-cols-2 gap-12">
+                                <div class="bg-white p-10 rounded-lg border-2 border-[#D4AF37]">
+                                    <div class="text-6xl mb-6">❓</div>
+                                    <h3 class="text-2xl font-bold mb-4">Questionnaire</h3>
+                                    <button onclick="state.analysisMode = 'questionnaire'; state.currentPage = 'quiz'; render();" class="w-full px-6 py-3 bg-[#D4AF37] text-white rounded-lg font-semibold">Commencer</button>
+                                </div>
+                                <div class="bg-white p-10 rounded-lg border-2 border-[#D4AF37]">
+                                    <div class="text-6xl mb-6">📷</div>
+                                    <h3 class="text-2xl font-bold mb-4">Analyse photo</h3>
+                                    <button onclick="state.analysisMode = 'photo'; state.currentPage = 'quiz'; render();" class="w-full px-6 py-3 bg-[#D4AF37] text-white rounded-lg font-semibold">Continuer</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else if (state.currentPage === 'quiz' && state.user) {
+                const question = quizQuestions[state.quizStep];
+                app.innerHTML = `
+                    <div class="min-h-screen bg-gray-50">
+                        <header class="bg-white border-b">
+                            <div class="max-w-6xl mx-auto px-6 py-4 flex justify-between">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-10 h-10 rounded-full bg-[#D4AF37]"></div>
+                                    <h1 class="text-xl font-bold">SkinMatch AI</h1>
+                                </div>
+                                <button onclick="logout();" class="px-6 py-3 text-gray-700">Déconnexion</button>
+                            </div>
+                        </header>
+                        <div class="max-w-2xl mx-auto px-6 py-12">
+                            <div class="w-full bg-gray-200 rounded-full h-2 mb-8">
+                                <div class="bg-[#D4AF37] h-2 rounded-full" style="width: ${(state.quizStep + 1) / quizQuestions.length * 100}%"></div>
+                            </div>
+                            <div class="bg-white rounded-lg p-8">
+                                <h2 class="text-2xl font-bold mb-8">${question.title}</h2>
+                                <div class="space-y-3 mb-8">
+                                    ${question.options.map(opt => `
+                                        <button onclick="handleQuizAnswer('${opt}')" class="w-full p-4 border-2 rounded-lg text-left font-medium ${
+                                            (question.multiple ? state.quizAnswers[question.key].includes(opt) : state.quizAnswers[question.key] === opt) ? 'border-[#D4AF37] bg-[#FFF8DC]' : 'border-gray-200'
+                                        }">
+                                            ${opt}
+                                        </button>
+                                    `).join('')}
+                                </div>
+                                <button onclick="submitQuiz();" class="w-full py-3 bg-[#D4AF37] text-white rounded-lg font-semibold">${state.quizStep === quizQuestions.length - 1 ? 'Résultats' : 'Suivant'}</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else if (state.currentPage === 'results' && state.recommendations) {
+                app.innerHTML = `
+                    <div class="min-h-screen bg-gray-50">
+                        <header class="bg-white border-b">
+                            <div class="max-w-6xl mx-auto px-6 py-4 flex justify-between">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-10 h-10 rounded-full bg-[#D4AF37]"></div>
+                                    <h1 class="text-xl font-bold">SkinMatch AI</h1>
+                                </div>
+                                <div class="flex gap-4">
+                                    <span class="bg-[#FFF8DC] px-4 py-2 rounded">${state.cart.length} articles</span>
+                                    <button onclick="logout();" class="px-6 py-3 text-gray-700">Déconnexion</button>
+                                </div>
+                            </div>
+                        </header>
+                        <div class="max-w-6xl mx-auto px-6 py-12">
+                            ${state.selectedTab === 'results' ? `
+                                <div class="bg-white rounded-lg p-8 mb-8">
+                                    <h2 class="text-2xl font-bold mb-6">Votre profil</h2>
+                                    <p class="text-xl"><strong>Type:</strong> ${state.recommendations.typePeau}</p>
+                                    <p class="text-lg"><strong>Problèmes:</strong> ${state.recommendations.problemes.join(', ') || 'Aucun'}</p>
+                                </div>
+                                <div class="grid md:grid-cols-2 gap-6">
+                                    ${state.recommendations.matchedProducts.map(p => `
+                                        <div class="bg-white rounded-lg p-6 border border-gray-100">
+                                            <h3 class="font-bold text-lg">${p.name}</h3>
+                                            <p class="text-gray-600">${p.brand}</p>
+                                            <p class="text-sm italic my-3">💡 ${p.reason}</p>
+                                            <div class="flex justify-between mb-4">
+                                                <span class="text-2xl font-bold text-[#D4AF37]">${p.price.toLocaleString()} CFA</span>
+                                                <span class="text-sm">${p.rating} ⭐</span>
+                                            </div>
+                                            <button onclick="addToCart(${JSON.stringify(p).replace(/"/g, '&quot;')})" class="w-full py-2 bg-[#D4AF37] text-white rounded-lg">Ajouter</button>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            ` : state.selectedTab === 'shop' ? `
+                                <h2 class="text-3xl font-bold mb-8">🛒 Boutique</h2>
+                                <div class="grid md:grid-cols-3 gap-6">
+                                    ${state.allProducts.map(p => `
+                                        <div class="bg-white rounded-lg p-6 border border-gray-100">
+                                            <h3 class="font-bold text-lg">${p.name}</h3>
+                                            <p class="text-gray-600 text-sm">${p.brand}</p>
+                                            <p class="text-xl font-bold text-[#D4AF37] my-3">${p.price.toLocaleString()} CFA</p>
+                                            <button onclick="addToCart(${JSON.stringify(p).replace(/"/g, '&quot;')})" class="w-full py-2 bg-[#D4AF37] text-white rounded-lg">Ajouter</button>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            ` : `
+                                <div class="grid md:grid-cols-2 gap-8">
+                                    <div class="bg-white rounded-lg p-8">
+                                        <p class="text-gray-600">Email:</p>
+                                        <p class="text-xl font-bold">${state.user.email}</p>
+                                    </div>
+                                    <div class="bg-white rounded-lg p-8">
+                                        <h3 class="text-xl font-bold mb-4">Panier (${state.cart.length})</h3>
+                                        ${state.cart.length > 0 ? `
+                                            <div class="space-y-2">
+                                                ${state.cart.map((p, i) => `
+                                                    <div class="flex justify-between p-2 bg-gray-50 rounded">
+                                                        <span>${p.name}</span>
+                                                        <button onclick="removeFromCart(${i})" class="text-red-600">X</button>
+                                                    </div>
+                                                `).join('')}
+                                                <p class="font-bold text-lg mt-4">Total: ${getCartTotal().toLocaleString()} CFA</p>
+                                            </div>
+                                        ` : `<p>Panier vide</p>`}
+                                    </div>
+                                </div>
+                            `}
+                        </div>
+                        <div class="flex gap-4 max-w-6xl mx-auto px-6 mt-8 justify-center">
+                            <button onclick="state.selectedTab = 'results'; render();" class="px-4 py-2 ${state.selectedTab === 'results' ? 'bg-[#D4AF37] text-white' : 'bg-gray-200'} rounded">Résultats</button>
+                            <button onclick="state.selectedTab = 'shop'; render();" class="px-4 py-2 ${state.selectedTab === 'shop' ? 'bg-[#D4AF37] text-white' : 'bg-gray-200'} rounded">Shop</button>
+                            <button onclick="state.selectedTab = 'profile'; render();" class="px-4 py-2 ${state.selectedTab === 'profile' ? 'bg-[#D4AF37] text-white' : 'bg-gray-200'} rounded">Profil</button>
+                        </div>
+                    </div>
+                `;
+            } else if (state.currentPage === 'vendor-dashboard') {
+                app.innerHTML = `
+                    <div class="min-h-screen bg-gray-50">
+                        <header class="bg-white border-b">
+                            <div class="max-w-6xl mx-auto px-6 py-4 flex justify-between">
+                                <h1 class="text-xl font-bold">${state.user.name}</h1>
+                                <button onclick="logout();" class="px-6 py-3 text-gray-700">Déconnexion</button>
+                            </div>
+                        </header>
+                        <div class="max-w-6xl mx-auto px-6 py-12">
+                            <div class="grid md:grid-cols-2 gap-12">
+                                <div class="bg-white rounded-lg p-8">
+                                    <h2 class="text-2xl font-bold mb-6">Ajouter produit</h2>
+                                    <form onsubmit="addVendorProduct(event)" class="space-y-4">
+                                        <input type="text" placeholder="Nom" onchange="state.vendorFormData.productName = this.value" class="w-full px-4 py-3 border-2 rounded">
+                                        <input type="number" placeholder="Prix" onchange="state.vendorFormData.price = this.value" class="w-full px-4 py-3 border-2 rounded">
+                                        <button class="w-full py-3 bg-[#D4AF37] text-white rounded font-semibold">Ajouter</button>
+                                    </form>
+                                </div>
+                                <div class="bg-white rounded-lg p-8">
+                                    <h2 class="text-2xl font-bold mb-6">Produits</h2>
+                                    ${state.vendorProducts.map(p => `
+                                        <div class="p-4 bg-gray-50 rounded mb-2">
+                                            <p class="font-bold">${p.name}</p>
+                                            <p class="text-[#D4AF37]">${p.price.toLocaleString()} CFA</p>
+                                        </div>
+                                    `).join('') || '<p>Aucun produit</p>'}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        render();
+    </script>
+</body>
+</html>
