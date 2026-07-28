@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SkinMatch AI - Recommandations cosmétiques premium</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0a0a0a;
+            color: #1a1a1a;
+        }
+        
+        .gold {
+            color: #D4AF37;
+        }
+        
+        .bg-gold {
+            background: #D4AF37;
+        }
+        
+        .gradient-gold {
+            background: linear-gradient(135deg, #D4AF37 0%, #f4d03f 100%);
+        }
+        
+        .navbar {
+            background: white;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .hero {
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            color: white;
+            padding: 60px 20px;
+            text-align: center;
+        }
+        
+        .hero h1 {
+            font-size: 3.5rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+            letter-spacing: -1px;
+        }
+        
+        .hero p {
+            font-size: 1.3rem;
+            color: #d4d4d4;
+            margin-bottom: 40px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        .btn-primary {
+            background: #D4AF37;
+            color: #1a1a1a;
+            padding: 14px 40px;
+            border-radius: 8px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1rem;
+        }
+        
+        .btn-primary:hover {
+            background: #f4d03f;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(212, 175, 55, 0.3);
+        }
+        
+        .btn-secondary {
+            background: white;
+            color: #1a1a1a;
+            padding: 12px 28px;
+            border-radius: 8px;
+            font-weight: 600;
+            border: 2px solid #D4AF37;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-secondary:hover {
+            background: #f9f9f9;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            transition: all 0.3s ease;
+            border: 1px solid #f0f0f0;
+        }
+        
+        .card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 12px 30px rgba(0,0,0,0.12);
+        }
+        
+        .product-card {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            transition: all 0.3s ease;
+            border: 1px solid #f0f0f0;
+        }
+        
+        .product-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 12px 30px rgba(0,0,0,0.12);
+        }
+        
+        .product-header {
+            background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%);
+            padding: 20px;
+            text-align: center;
+            border-bottom: 2px solid #D4AF37;
+        }
+        
+        .product-header .emoji {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            margin-bottom: 12px;
+        }
+        
+        .form-input:focus {
+            outline: none;
+            border-color: #D4AF37;
+            box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
+        }
+        
+        .quiz-option {
+            width: 100%;
+            padding: 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: left;
+            font-weight: 500;
+            margin-bottom: 10px;
+        }
+        
+        .quiz-option:hover {
+            border-color: #D4AF37;
+            background: #fffaf0;
+        }
+        
+        .quiz-option.selected {
+            border-color: #D4AF37;
+            background: #D4AF37;
+            color: #1a1a1a;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: #e0e0e0;
+            border-radius: 2px;
+            margin-bottom: 30px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: #D4AF37;
+            transition: width 0.3s ease;
+        }
+        
+        .rating {
+            color: #D4AF37;
+            font-size: 0.9rem;
+        }
+        
+        .badge {
+            display: inline-block;
+            background: #FFF8DC;
+            color: #D4AF37;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div id="app"></div>
+
+    <script>
+        const state = {
+            currentPage: 'home',
+            user: null,
+            userRole: null,
+            authData: { email: '', password: '', name: '' },
+            isSignUp: false,
+            photoPreview: null,
+            quizStep: 0,
+            quizAnswers: { typePeau: '', probleme: '' },
+            recommendations: null,
+            cart: [],
+            cartCount: 0,
+            allProducts: [
+                { id: 1, name: 'Nettoyant Purifiant Premium', brand: 'BeautyBénin', price: 8500, skinType: 'Grasse', problem: 'Acné', rating: 4.8, reviews: 42, emoji: '✨' },
+                { id: 2, name: 'Crème Hydratante Riche', brand: 'LuxeSkin', price: 15000, skinType: 'Sèche', problem: 'Sécheresse', rating: 4.9, reviews: 67, emoji: '💧' },
+                { id: 3, name: 'Sérum Anti-Acné Intensif', brand: 'ClearSkin', price: 13000, skinType: 'Grasse', problem: 'Acné', rating: 4.8, reviews: 54, emoji: '🔬' },
+                { id: 4, name: 'SPF 50+ Protection Solaire', brand: 'SunGuard', price: 11500, skinType: 'Tous', problem: 'Protection', rating: 4.9, reviews: 112, emoji: '☀️' },
+                { id: 5, name: 'Masque Hydratant Velours', brand: 'LuxeSkin', price: 12000, skinType: 'Sèche', problem: 'Rides', rating: 4.7, reviews: 38, emoji: '🎭' },
+                { id: 6, name: 'Contour des Yeux Liftant', brand: 'SkinElite', price: 18000, skinType: 'Tous', problem: 'Rides', rating: 4.9, reviews: 89, emoji: '👁️' },
+            ],
+            vendorProducts: [],
+            quizQuestions: [
+                { title: 'Quel est votre type de peau ?', options: ['Grasse', 'Sèche', 'Mixte', 'Normale', 'Sensible'], key: 'typePeau' },
+                { title: 'Quel est votre principal problème ?', options: ['Acné', 'Rides', 'Taches', 'Sécheresse', 'Sensibilité'], key: 'probleme' },
+            ]
+        };
+
+        function logout() {
+            state.user = null;
+            state.userRole = null;
+            state.currentPage = 'home';
+            state.cart = [];
+            state.cartCount = 0;
+            state.recommendations = null;
+            state.photoPreview = null;
+            state.quizAnswers = { typePeau: '', probleme: '' };
+            state.quizStep = 0;
+            render();
+        }
+
+        function handleAuth(e) {
+            e.preventDefault();
+            if (state.isSignUp) {
+                if (!state.authData.name || !state.authData.email || !state.authData.password) return;
+                state.user = { name: state.authData.name, email: state.authData.email };
+            } else {
+                if (!state.authData.email || !state.authData.password) return;
+                state.user = { name: 'Utilisateur Premium', email: state.authData.email };
+            }
+            state.authData = { email: '', password: '', name: '' };
+            state.currentPage = 'mode';
+            render();
+        }
+
+        function handlePhotoUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                state.photoPreview = event.target.result;
+                state.currentPage = 'photo-quiz';
+                state.quizStep = 0;
+                state.quizAnswers = { typePeau: '', probleme: '' };
+                render();
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function handleQuizAnswer(answer) {
+            const question = state.quizQuestions[state.quizStep];
+            state.quizAnswers[question.key] = answer;
+            if (state.quizStep < state.quizQuestions.length - 1) {
+                state.quizStep++;
+            } else {
+                const skinType = state.quizAnswers.typePeau;
+                const problem = state.quizAnswers.probleme;
+                const matched = state.allProducts.filter(p => 
+                    (p.skinType === skinType || p.skinType === 'Tous') && 
+                    (p.problem === problem || p.problem === 'Protection')
+                );
+                state.recommendations = {
+                    ...state.quizAnswers,
+                    matchedProducts: matched.length > 0 ? matched : state.allProducts.slice(0, 3),
+                };
+                state.currentPage = 'results';
+            }
+            render();
+        }
+
+        function addToCart(product) {
+            state.cart.push(product);
+            state.cartCount++;
+            render();
+        }
+
+        function handleVendorAuth(e) {
+            e.preventDefault();
+            if (!state.authData.email || !state.authData.password) return;
+            state.user = { name: 'Vendeur Premium', email: state.authData.email };
+            state.userRole = 'vendor';
+            state.currentPage = 'vendor-dashboard';
+            render();
+        }
+
+        function addVendorProduct(e) {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const newProduct = {
+                id: state.allProducts.length + state.vendorProducts.length + 1,
+                name: formData.get('productName'),
+                brand: formData.get('brandName'),
+                price: parseInt(formData.get('price')),
+                skinType: formData.get('skinType'),
+                problem: formData.get('problem'),
+                rating: 4.8,
+                reviews: 0,
+                emoji: '💎',
+                vendor: state.user.email
+            };
+            state.vendorProducts.push(newProduct);
+            state.allProducts.push(newProduct);
+            e.target.reset();
+            alert('Produit ajouté avec succès ! 🎉');
+            render();
+        }
+
+        function render() {
+            const app = document.getElementById('app');
+
+            if (state.currentPage === 'home' && !state.user) {
+                app.innerHTML = `
+                    <div class="navbar">
+                        <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+                            <div class="flex items-center gap-3">
+                                <div class="w-12 h-12 rounded-full bg-gradient-gold flex items-center justify-center text-white font-bold text-xl">S</div>
+                                <h1 class="text-2xl font-bold">SkinMatch AI</h1>
+                            </div>
+                            <div class="flex gap-3">
+                                <button onclick="state.isSignUp = true; state.currentPage = 'auth'; render();" class="btn-secondary">S'inscrire</button>
+                                <button onclick="state.isSignUp = false; state.currentPage = 'auth'; render();" class="btn-primary">Se connecter</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="hero">
+                        <h1>Découvrez Votre Routine Peau Idéale</h1>
+                        <p>Des recommandations cosmétiques premium adaptées à votre peau</p>
+                        <button onclick="state.isSignUp = true; state.currentPage = 'auth'; render();" class="btn-primary" style="font-size: 1.1rem; padding: 16px 48px;">Commencer Gratuitement</button>
+                    </div>
+
+                    <div class="max-w-7xl mx-auto px-6 py-20">
+                        <div class="grid md:grid-cols-4 gap-8 mb-20">
+                            <div class="card text-center">
+                                <div style="font-size: 3rem; margin-bottom: 15px;">❓</div>
+                                <h3 class="text-lg font-bold mb-2">Questionnaire</h3>
+                                <p class="text-gray-600">Analyse rapide</p>
+                            </div>
+                            <div class="card text-center">
+                                <div style="font-size: 3rem; margin-bottom: 15px;">📷</div>
+                                <h3 class="text-lg font-bold mb-2">Photo IA</h3>
+                                <p class="text-gray-600">Analyse visuelle</p>
+                            </div>
+                            <div class="card text-center">
+                                <div style="font-size: 3rem; margin-bottom: 15px;">💎</div>
+                                <h3 class="text-lg font-bold mb-2">Produits Premium</h3>
+                                <p class="text-gray-600">Sélection exclusive</p>
+                            </div>
+                            <div class="card text-center">
+                                <div style="font-size: 3rem; margin-bottom: 15px;">🛒</div>
+                                <h3 class="text-lg font-bold mb-2">Achat Direct</h3>
+                                <p class="text-gray-600">Livraison rapide</p>
+                            </div>
+                        </div>
+
+                        <div class="text-center">
+                            <h2 class="text-3xl font-bold mb-8">Êtes-vous une marque ?</h2>
+                            <button onclick="state.isSignUp = false; state.currentPage = 'vendor-login'; render();" class="btn-primary" style="font-size: 1rem; padding: 14px 36px;">Espace Vendeur</button>
+                        </div>
+                    </div>
+                `;
+            } else if (state.currentPage === 'auth') {
+                app.innerHTML = `
+                    <div class="navbar">
+                        <div class="max-w-7xl mx-auto px-6 py-4">
+                            <button onclick="state.currentPage = 'home'; render();" class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-full bg-gradient-gold flex items-center justify-center text-white font-bold">S</div>
+                                <span class="text-xl font-bold">SkinMatch AI</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="max-w-md mx-auto px-6 py-20">
+                        <div class="card">
+                            <h2 class="text-3xl font-bold mb-8 text-center">${state.isSignUp ? 'Créer Votre Compte' : 'Se Connecter'}</h2>
+                            <form onsubmit="handleAuth(event)">
+                                ${state.isSignUp ? `<input type="text" placeholder="Nom complet" onchange="state.authData.name = this.value" class="form-input" required>` : ''}
+                                <input type="email" placeholder="Email" onchange="state.authData.email = this.value" class="form-input" required>
+                                <input type="password" placeholder="Mot de passe" onchange="state.authData.password = this.value" class="form-input" required>
+                                <button class="btn-primary w-full" style="padding: 12px;">${state.isSignUp ? "S'inscrire" : 'Se connecter'}</button>
+                            </form>
+                            <button onclick="state.isSignUp = !state.isSignUp; render();" class="w-full mt-4 text-[#D4AF37] font-semibold">${state.isSignUp ? 'Se connecter' : "S'inscrire"}</button>
+                        </div>
+                    </div>
+                `;
+            } else if (state.currentPage === 'vendor-login') {
+                app.innerHTML = `
+                    <div class="navbar">
+                        <div class="max-w-7xl mx-auto px-6 py-4">
+                            <button onclick="state.currentPage = 'home'; render();" class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-full bg-gradient-gold flex items-center justify-center text-white font-bold">S</div>
+                                <span class="text-xl font-bold">SkinMatch AI</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="max-w-md mx-auto px-6 py-20">
+                        <div class="card">
+                            <h2 class="text-3xl font-bold mb-2 text-center">Espace Vendeur</h2>
+                            <p class="text-center text-gray-600 mb-8">Connectez-vous pour gérer vos produits</p>
+                            <form onsubmit="handleVendorAuth(event)">
+                                <input type="email" placeholder="Email" onchange="state.authData.email = this.value" class="form-input" required>
+                                <input type="password" placeholder="Mot de passe" onchange="state.authData.password = this.value" class="form-input" required>
+                                <button class="btn-primary w-full" style="padding: 12px;">Se connecter</button>
+                            </form>
+                        </div>
+                    </div>
+                `;
+            } else if (state.currentPage === 'mode' && state.user) {
+                app.innerHTML = `
+                    <div class="navbar">
+                        <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-full bg-gradient-gold flex items-center justify-center text-white font-bold">S</div>
+                                <h1 class="text-xl font-bold">SkinMatch AI</h1>
+                            </div>
+                            <button onclick="logout();" class="text-gray-700 hover:text-[#D4AF37]">Déconnexion</button>
+                        </div>
+                    </div>
+
+                    <div class="max-w-7xl mx-auto px-6 py-20">
+                        <h2 class="text-4xl font-bold text-center mb-16">Choisissez Votre Analyse</h2>
+                        <div class="grid md:grid-cols-2 gap-12">
+                            <div class="card border-2" style="border-color: #D4AF37;">
+                                <div style="font-size: 4rem; text-align: center; margin-bottom: 20px;">❓</div>
+                                <h3 class="text-2xl font-bold mb-4 text-center">Questionnaire Express</h3>
+                                <p class="text-gray-600 mb-8 text-center">2 questions seulement pour des recommandations rapides</p>
+                                <button onclick="state.currentPage = 'simple-quiz'; state.quizStep = 0; state.quizAnswers = {typePeau: '', probleme: ''}; render();" class="btn-primary w-full">Commencer</button>
+                            </div>
+                            <div class="card border-2" style="border-color: #D4AF37;">
+                                <div style="font-size: 4rem; text-align: center; margin-bottom: 20px;">📷</div>
+                                <h3 class="text-2xl font-bold mb-4 text-center">Analyse Photo IA</h3>
+                                <p class="text-gray-600 mb-8 text-center">Uploadez une photo + 2 questions pour une analyse précise</p>
+                                <label class="btn-primary w-full text-center cursor-pointer block">
+                                    <input type="file" accept="image/*" onchange="handlePhotoUpload(event)" style="display: none;">
+                                    Choisir une photo
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else if (state.currentPage === 'simple-quiz') {
+                const question = state.quizQuestions[state.quizStep];
+                const progress = ((state.quizStep + 1) / state.quizQuestions.length) * 100;
+                app.innerHTML = `
+                    <div class="navbar">
+                        <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-full bg-gradient-gold flex items-center justify-center text-white font-bold">S</div>
+                                <h1 class="text-xl font-bold">SkinMatch AI</h1>
+                            </div>
+                            <button onclick="logout();" class="text-gray-700">Déconnexion</button>
+                        </div>
+                    </div>
+
+                    <div class="max-w-2xl mx-auto px-6 py-12">
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${progress}%"></div>
+                        </div>
+                        <div class="card">
+                            <h2 class="text-3xl font-bold mb-10 text-center">${question.title}</h2>
+                            <div class="space-y-4 mb-10">
+                                ${question.options.map(opt => `
+                                    <button onclick="state.quizAnswers.${question.key} = '${opt}'; ${state.quizStep === state.quizQuestions.length - 1 ? `state.recommendations = {...state.quizAnswers, matchedProducts: state.allProducts.filter(p => (p.skinType === '${opt}' || p.skinType === 'Tous'))}; state.currentPage = 'results';` : `state.quizStep++;`} render();" 
+                                        class="quiz-option ${state.quizAnswers[question.key] === opt ? 'selected' : ''}">
+                                        ${opt}
+                                    </button>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else if (state.currentPage === 'photo-quiz') {
+                const question = state.quizQuestions[state.quizStep];
+                const progress = ((state.quizStep + 1) / state.quizQuestions.length) * 100;
+                app.innerHTML = `
+                    <div class="navbar">
+                        <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-full bg-gradient-gold flex items-center justify-center text-white font-bold">S</div>
+                                <h1 class="text-xl font-bold">SkinMatch AI</h1>
+                            </div>
+                            <button onclick="logout();" class="text-gray-700">Déconnexion</button>
+                        </div>
+                    </div>
+
+                    <div class="max-w-2xl mx-auto px-6 py-12">
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${progress}%"></div>
+                        </div>
+                        <div class="card mb-6">
+                            <h3 class="font-bold mb-4 text-center text-lg">Votre Photo Analysée</h3>
+                            <img src="${state.photoPreview}" class="w-full rounded-lg max-h-80 object-cover">
+                        </div>
+                        <div class="card">
+                            <h2 class="text-3xl font-bold mb-10 text-center">${question.title}</h2>
+                            <div class="space-y-4 mb-10">
+                                ${question.options.map(opt => `
+                                    <button onclick="state.quizAnswers.${question.key} = '${opt}'; ${state.quizStep === state.quizQuestions.length - 1 ? `state.recommendations = {...state.quizAnswers, matchedProducts: state.allProducts.filter(p => (p.skinType === '${opt}' || p.skinType === 'Tous'))}; state.currentPage = 'results';` : `state.quizStep++;`} render();" 
+                                        class="quiz-option ${state.quizAnswers[question.key] === opt ? 'selected' : ''}">
+                                        ${opt}
+                                    </button>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else if (state.currentPage === 'results' && state.recommendations) {
+                app.innerHTML = `
+                    <div class="navbar">
+                        <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-full bg-gradient-gold flex items-center justify-center text-white font-bold">S</div>
+                                <h1 class="text-xl font-bold">SkinMatch AI</h1>
+                            </div>
+                            <div class="flex items-center gap-6">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-2xl">🛒</span>
+                                    <span class="font-bold">${state.cartCount}</span>
+                                </div>
+                                <button onclick="logout();" class="text-gray-700 hover:text-[#D4AF37]">Déconnexion</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="max-w-7xl mx-auto px-6 py-12">
+                        <div class="card mb-12">
+                            <h2 class="text-3xl font-bold mb-6">✨ Vos Recommandations Personnalisées</h2>
+                            <div class="grid grid-cols-2 gap-4 md:gap-8">
+                                <div>
+                                    <p class="text-gray-600 mb-2">Type de peau</p>
+                                    <span class="badge">${state.recommendations.typePeau}</span>
+                                </div>
+                                <div>
+                                    <p class="text-gray-600 mb-2">Problème identifié</p>
+                                    <span class="badge">${state.recommendations.probleme}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <h3 class="text-2xl font-bold mb-8">Produits Recommandés</h3>
+                        <div class="grid md:grid-cols-3 gap-8 mb-12">
+                            ${state.recommendations.matchedProducts.map(p => `
+                                <div class="product-card">
+                                    <div class="product-header">
+                                        <div class="emoji">${p.emoji}</div>
+                                        <h4 class="font-bold text-lg">${p.name}</h4>
+                                        <p class="text-sm text-gray-600">${p.brand}</p>
+                                    </div>
+                                    <div class="p-6">
+                                        <div class="rating mb-3">⭐ ${p.rating} (${p.reviews} avis)</div>
+                                        <p class="text-3xl font-bold text-[#D4AF37] mb-6">${p.price.toLocaleString()} CFA</p>
+                                        <button onclick="addToCart(${JSON.stringify(p).replace(/"/g, '&quot;')})" class="btn-primary w-full">Ajouter au Panier</button>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+
+                        <div class="text-center">
+                            <button onclick="state.currentPage = 'mode'; render();" class="btn-secondary">Nouvelle Analyse</button>
+                        </div>
+                    </div>
+                `;
+            } else if (state.currentPage === 'vendor-dashboard' && state.userRole === 'vendor') {
+                app.innerHTML = `
+                    <div class="navbar">
+                        <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-full bg-gradient-gold flex items-center justify-center text-white font-bold">S</div>
+                                <h1 class="text-xl font-bold">SkinMatch Vendeur</h1>
+                            </div>
+                            <button onclick="logout();" class="text-gray-700 hover:text-[#D4AF37]">Déconnexion</button>
+                        </div>
+                    </div>
+
+                    <div class="max-w-7xl mx-auto px-6 py-12">
+                        <h1 class="text-4xl font-bold mb-12">Tableau de Bord Vendeur</h1>
+
+                        <div class="grid md:grid-cols-3 gap-8 mb-12">
+                            <div class="card text-center">
+                                <div style="font-size: 2.5rem; margin-bottom: 10px;">📊</div>
+                                <p class="text-gray-600 mb-2">Produits Actifs</p>
+                                <p class="text-3xl font-bold">${state.vendorProducts.length}</p>
+                            </div>
+                            <div class="card text-center">
+                                <div style="font-size: 2.5rem; margin-bottom: 10px;">💰</div>
+                                <p class="text-gray-600 mb-2">Ventes Totales</p>
+                                <p class="text-3xl font-bold">0 CFA</p>
+                            </div>
+                            <div class="card text-center">
+                                <div style="font-size: 2.5rem; margin-bottom: 10px;">👥</div>
+                                <p class="text-gray-600 mb-2">Clients</p>
+                                <p class="text-3xl font-bold">0</p>
+                            </div>
+                        </div>
+
+                        <div class="card mb-12">
+                            <h2 class="text-2xl font-bold mb-8">Ajouter un Nouveau Produit</h2>
+                            <form onsubmit="addVendorProduct(event)">
+                                <input type="text" name="productName" placeholder="Nom du produit" class="form-input" required>
+                                <input type="text" name="brandName" placeholder="Nom de votre marque" class="form-input" required>
+                                <input type="number" name="price" placeholder="Prix (CFA)" class="form-input" required>
+                                <select name="skinType" class="form-input" required>
+                                    <option>Sélectionnez le type de peau</option>
+                                    <option>Grasse</option>
+                                    <option>Sèche</option>
+                                    <option>Mixte</option>
+                                    <option>Normale</option>
+                                    <option>Sensible</option>
+                                    <option>Tous</option>
+                                </select>
+                                <select name="problem" class="form-input" required>
+                                    <option>Sélectionnez le problème</option>
+                                    <option>Acné</option>
+                                    <option>Rides</option>
+                                    <option>Taches</option>
+                                    <option>Sécheresse</option>
+                                    <option>Sensibilité</option>
+                                    <option>Protection</option>
+                                </select>
+                                <button class="btn-primary w-full" style="padding: 12px;">Ajouter le Produit</button>
+                            </form>
+                        </div>
+
+                        ${state.vendorProducts.length > 0 ? `
+                            <h2 class="text-2xl font-bold mb-8">Mes Produits</h2>
+                            <div class="grid md:grid-cols-3 gap-8">
+                                ${state.vendorProducts.map(p => `
+                                    <div class="product-card">
+                                        <div class="product-header">
+                                            <div class="emoji">💎</div>
+                                            <h4 class="font-bold">${p.name}</h4>
+                                            <p class="text-sm text-gray-600">${p.brand}</p>
+                                        </div>
+                                        <div class="p-6">
+                                            <p class="text-2xl font-bold text-[#D4AF37] mb-3">${p.price.toLocaleString()} CFA</p>
+                                            <p class="text-sm text-gray-600">Type: ${p.skinType}</p>
+                                            <p class="text-sm text-gray-600">Problème: ${p.problem}</p>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+        }
+
+        render();
+    </script>
+</body>
+</html>
